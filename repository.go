@@ -1,60 +1,56 @@
 package qtodo
 
 import (
-	"fmt"
+	"errors"
 )
 
 type Database interface {
 	GetTaskList() []Task
-	GetTask(name string) (Task, error)
-	SaveTask(task Task) error
-	DelTask(name string) error
+	GetTask(string) (Task, error)
+	SaveTask(Task) error
+	DelTask(string) error
 }
 
 type InMemoryDatabase struct {
-	tasks []Task
+	Tasks map[string]Task
 }
 
-func NewInMemoryDatabase() *InMemoryDatabase {
-	return &InMemoryDatabase{
-		tasks: make([]Task, 0),
+func NewDatabase() *InMemoryDatabase {
+	return &InMemoryDatabase{map[string]Task{}}
+}
+
+func (in *InMemoryDatabase) GetTaskList() []Task {
+	result := []Task{}
+	for _, v := range in.Tasks {
+		result = append(result, v)
+	}
+	return result
+}
+
+func (in *InMemoryDatabase) GetTask(name string) (Task, error) {
+	if t, ok := in.Tasks[name]; !ok {
+		return nil, errors.New("no such task")
+	} else {
+		return t, nil
 	}
 }
 
-func (db *InMemoryDatabase) GetTaskList() []Task {
-	return db.tasks
-}
-
-func (db *InMemoryDatabase) GetTask(name string) (Task, error) {
-	for _, task := range db.tasks {
-		if task.GetName() == name {
-			return task, nil
-		}
+func (in *InMemoryDatabase) SaveTask(task Task) error {
+	_, err := in.GetTask(task.GetName())
+	if err == nil {
+		return errors.New("duplicate")
 	}
-	return nil, fmt.Errorf("task not found")
-}
 
-func (db *InMemoryDatabase) SaveTask(task Task) error {
-	for i, t := range db.tasks {
-		if t.GetName() == task.GetName() {
-			db.tasks[i] = task // Update existing task
-			return nil
-		}
-	}
-	db.tasks = append(db.tasks, task) // Add new task
+	in.Tasks[task.GetName()] = task
 	return nil
 }
 
-func (db *InMemoryDatabase) DelTask(name string) error {
-	for i, task := range db.tasks {
-		if task.GetName() == name {
-			db.tasks = append(db.tasks[:i], db.tasks[i+1:]...) // Remove task
-			return nil
-		}
+func (in *InMemoryDatabase) DelTask(name string) error {
+	_, err := in.GetTask(name)
+	if err != nil {
+		return err
 	}
-	return fmt.Errorf("task not found")
-}
 
-func NewDatabase() Database {
-	return NewInMemoryDatabase()
+	delete(in.Tasks, name)
+	return nil
 }
